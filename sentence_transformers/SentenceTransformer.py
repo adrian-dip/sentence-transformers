@@ -592,7 +592,8 @@ class SentenceTransformer(nn.Sequential):
             checkpoint_path: str = None,
             checkpoint_save_steps: int = 500,
             checkpoint_save_total_limit: int = 0
-            label_smoothing=0.05
+            label_smoothing: float =0.05
+            gradient_accumulation_steps: int = 0
             ):
         """
         Train the model with the given training objective
