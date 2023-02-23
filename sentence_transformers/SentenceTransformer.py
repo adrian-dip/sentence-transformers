@@ -592,6 +592,7 @@ class SentenceTransformer(nn.Sequential):
             checkpoint_path: str = None,
             checkpoint_save_steps: int = 500,
             checkpoint_save_total_limit: int = 0
+            label_smoothing=0.05
             ):
         """
         Train the model with the given training objective
@@ -689,7 +690,7 @@ class SentenceTransformer(nn.Sequential):
                 loss_model.zero_grad()
                 loss_model.train()
 
-            for _ in trange(steps_per_epoch, desc="Iteration", smoothing=0.05, disable=not show_progress_bar):
+            for _ in trange(steps_per_epoch, desc="Iteration", smoothing=label_smoothing, disable=not show_progress_bar):
                 for train_idx in range(num_train_objectives):
                     loss_model = loss_models[train_idx]
                     optimizer = optimizers[train_idx]
@@ -706,6 +707,38 @@ class SentenceTransformer(nn.Sequential):
                     features, labels = data
                     labels = labels.to(self._target_device)
                     features = list(map(lambda batch: batch_to_device(batch, self._target_device), features))
+                    
+                    if gradient_accumulation_steps > 1:
+                        
+                        if use_amp:
+                            with autocast():
+                                loss_value = loss_model(features, labels)
+                                
+                            if gradient_accumulation_steps > 1:
+                                loss_value = loss / gradient_accumulation_steps
+                                
+                            scale_before_step = scaler.get_scale()
+                            scaler.scale(loss_value).backward()
+                            scaler.unscale_(optimizer)
+                            torch.nn.utils.clip_grad_norm_(loss_model.parameters(), max_grad_norm)
+                            
+                            if (training_steps + 1) % gradient_accumulation_steps == 0:
+                                scaler.step(optimizer)
+                                scaler.update()
+
+                            skip_scheduler = scaler.get_scale() != scale_before_step
+                            
+                        else:
+                            loss_value = loss_model(features, labels)
+                            loss_value.backward()
+                            torch.nn.utils.clip_grad_norm_(loss_model.parameters(), max_grad_norm)
+                            
+                            if (training_steps + 1) % gradient_accumulation_steps == 0:
+                                scaler.step(optimizer)
+                                
+                            optimizer.step()
+
+                        optimizer.zero_grad()
 
                     if use_amp:
                         with autocast():
