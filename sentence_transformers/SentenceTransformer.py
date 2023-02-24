@@ -591,8 +591,8 @@ class SentenceTransformer(nn.Sequential):
             show_progress_bar: bool = True,
             checkpoint_path: str = None,
             checkpoint_save_steps: int = 500,
-            checkpoint_save_total_limit: int = 0
-            label_smoothing: float =0.05
+            checkpoint_save_total_limit: int = 0,
+            label_smoothing: float = 0.05,
             gradient_accumulation_steps: int = 0
             ):
         """
