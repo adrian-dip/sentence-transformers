@@ -82,11 +82,16 @@ class BatchHardTripletLoss(nn.Module):
        train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=train_batch_size)
        train_loss = losses.BatchHardTripletLoss(model=model)
     """
-    def __init__(self, model: SentenceTransformer, distance_metric = BatchHardTripletLossDistanceFunction.eucledian_distance, margin: float = 5):
+    def __init__(self, 
+                 model: SentenceTransformer, 
+                 distance_metric = BatchHardTripletLossDistanceFunction.eucledian_distance,
+                 margin: float = 5,
+                 temperature: float = 1.0):
         super(BatchHardTripletLoss, self).__init__()
         self.sentence_embedder = model
         self.triplet_margin = margin
         self.distance_metric = distance_metric
+        self.temperature = temperature
 
     def forward(self, sentence_features: Iterable[Dict[str, Tensor]], labels: Tensor):
         rep = self.sentence_embedder(sentence_features[0])['sentence_embedding']
@@ -136,6 +141,7 @@ class BatchHardTripletLoss(nn.Module):
         # Combine biggest d(a, p) and smallest d(a, n) into final triplet loss
         tl = hardest_positive_dist - hardest_negative_dist + self.triplet_margin
         tl[tl < 0] = 0
+        tl = tl / self.temperature
         triplet_loss = tl.mean()
 
         return triplet_loss
