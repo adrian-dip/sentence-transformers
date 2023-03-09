@@ -31,10 +31,15 @@ class BatchHardSoftMarginTripletLoss(BatchHardTripletLoss):
        train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=train_batch_size)
        train_loss = losses.BatchHardSoftMarginTripletLoss(model=model)
     """
-    def __init__(self, model: SentenceTransformer, distance_metric=BatchHardTripletLossDistanceFunction.eucledian_distance):
+    def __init__(self, 
+                 model: SentenceTransformer, 
+                 distance_metric=BatchHardTripletLossDistanceFunction.eucledian_distance,
+                 temperature=1.0
+                ):
         super(BatchHardSoftMarginTripletLoss, self).__init__(model)
         self.sentence_embedder = model
         self.distance_metric = distance_metric
+        self.temperature = temperature
 
     def forward(self, sentence_features: Iterable[Dict[str, Tensor]], labels: Tensor):
         rep = self.sentence_embedder(sentence_features[0])['sentence_embedding']
@@ -82,7 +87,7 @@ class BatchHardSoftMarginTripletLoss(BatchHardTripletLoss):
         # Combine biggest d(a, p) and smallest d(a, n) into final triplet loss with soft margin
         #tl = hardest_positive_dist - hardest_negative_dist + margin
         #tl[tl < 0] = 0
-        tl = torch.log1p(torch.exp(hardest_positive_dist - hardest_negative_dist))
+        tl = torch.log1p(torch.exp(hardest_positive_dist - hardest_negative_dist) / self.temperature)
         triplet_loss = tl.mean()
 
         return triplet_loss
